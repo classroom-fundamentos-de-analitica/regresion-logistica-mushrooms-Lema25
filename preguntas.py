@@ -106,67 +106,116 @@ def pregunta_02():
     # Retorne `X_train`, `X_test`, `y_train` y `y_test`
     return X_train, X_test, y_train, y_test
 
-
 def pregunta_03():
     """
-    Especificación y entrenamiento del modelo. En sklearn, el modelo de regresión
-    logística (a diferencia del modelo implementado normalmente en estadística) tiene
-    un hiperparámetro de regularición llamado `Cs`. Consulte la documentación.
-
-    Para encontrar el valor óptimo de Cs se puede usar LogisticRegressionCV.
-
-    Ya que las variables explicativas son literales, resulta más conveniente usar un
-    pipeline.
+    Especificación del pipeline y entrenamiento
+    -------------------------------------------------------------------------------------
     """
 
-    # Importe LogisticRegressionCV
-    # Importe OneHotEncoder
+    # Importe make_column_selector
+    # Importe make_column_transformer
+    # Importe SelectKBest
+    # Importe f_regression
+    # Importe LinearRegression
+    # Importe GridSearchCV
     # Importe Pipeline
-    from ____ import ____
+    # Importe OneHotEncoder
+    from sklearn.pipeline import Pipeline
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.linear_model import LinearRegression
+    from sklearn.feature_selection import SelectKBest,f_regression
+    from sklearn.compose import ColumnTransformer
+    from sklearn.preprocessing import OneHotEncoder
+    from sklearn.compose import make_column_selector,make_column_transformer
 
-    # Cargue las variables.
-    X_train, _, y_train, _ = pregunta_02()
-
-    # Cree un pipeline que contenga un estimador OneHotEncoder y un estimador
-    # LogisticRegression con una regularización Cs=10
     pipeline = Pipeline(
         steps=[
-            ("____", ____()),
-            ("____", ____(____)),
+            # Paso 1: Construya un column_transformer que aplica OneHotEncoder a las
+            # variables categóricas, y no aplica ninguna transformación al resto de
+            # las variables.
+            (
+                "column_transfomer",
+                make_column_transformer(
+                    (
+                        OneHotEncoder(),
+                        make_column_selector(dtype_include=object),
+                    ),
+                    remainder="passthrough",
+                ),
+            ),
+            # Paso 2: Construya un selector de características que seleccione las K
+            # características más importantes. Utilice la función f_regression.
+            (
+                "selectKBest",
+                SelectKBest(score_func=f_regression),
+            ),
+            # Paso 3: Construya un modelo de regresión lineal.
+            (
+                "linearRegression",
+                LinearRegression(),
+            ),
         ],
     )
 
-    # Entrene el pipeline con los datos de entrenamiento.
-    ____.____(____, ____)
+    # Cargua de las variables.
+    X_train, _, y_train, _ = pregunta_02()
 
-    # Retorne el pipeline entrenado
-    return pipeline
+    # Defina un diccionario de parámetros para el GridSearchCV. Se deben
+    # considerar valores desde 1 hasta 11 regresores para el modelo
+    param_grid = {
+        "selectKBest__k": range(1, 11),
+    }
+
+    # Defina una instancia de GridSearchCV con el pipeline y el diccionario de
+    # parámetros. Use cv = 5, y como métrica de evaluación el valor negativo del
+    # error cuadrático medio.
+    gridSearchCV = GridSearchCV(
+            estimator=pipeline,
+            param_grid=param_grid,
+            cv=5,
+            scoring="neg_mean_squared_error",
+            refit=True,
+            return_train_score=False,
+        )
+
+    # Búsque la mejor combinación de regresores
+    gridSearchCV.fit(X_train, y_train)
+
+    # Retorne el mejor modelo
+    return gridSearchCV
 
 
 def pregunta_04():
     """
-    Evalue el modelo obtenido.
+    Evaluación del modelo
+    -------------------------------------------------------------------------------------
     """
 
-    # Importe confusion_matrix
-    from ____ import ____
+    # Importe mean_squared_error
+    from sklearn.metrics import mean_squared_error
 
-    # Obtenga el pipeline de la pregunta 3.
-    pipeline = pregunta_03()
+    # Obtenga el pipeline optimo de la pregunta 3.
+    gridSearchCV = pregunta_03()
 
     # Cargue las variables.
     X_train, X_test, y_train, y_test = pregunta_02()
 
-    # Evalúe el pipeline con los datos de entrenamiento usando la matriz de confusion.
-    cfm_train = ____(
-        y_true=____,
-        y_pred=____.____(____),
-    )
+    # Evalúe el modelo con los conjuntos de entrenamiento y prueba.
+    y_train_pred = gridSearchCV.predict(X_train)
+    y_test_pred = gridSearchCV.predict(X_test)
 
-    cfm_test = ____(
-        y_true=____,
-        y_pred=____.____(____),
-    )
+    # Compute el error cuadratico medio de entrenamiento y prueba. Redondee los
+    # valores a dos decimales.
 
-    # Retorne la matriz de confusion de entrenamiento y prueba
-    return cfm_train, cfm_test
+    mse_train = mean_squared_error(
+        y_train,
+        y_train_pred,
+    ).round(2)
+
+    mse_test = mean_squared_error(
+        y_test,
+        y_test_pred,
+    ).round(2)
+
+    # Retorne el error cuadrático medio para entrenamiento y prueba
+    return mse_train, mse_test
